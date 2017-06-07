@@ -3,6 +3,8 @@ source('global.R')
 
 # Upload GIS data here to avoid uploading it twice (if it were in the global.R file)
 bounds <- readOGR('data','RoanokeBoundary')
+centerline <- readOGR('data','VAroadcenterline2017_84')
+wqs <- readOGR('data','wqs_riverine_id305b_2013_84')
 #Ecoregions@proj4string <- CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0")
 
 
@@ -24,10 +26,14 @@ shinyServer(function(input, output, session) {
       addProviderTiles(providers$OpenTopoMap,group='Open Topo Map')%>%
       addPolygons(data=bounds,color='gray',fill=0.1,stroke=0.2,group="Municipalities",
                   popup=paste("Municipality: ",bounds@data$DESCRIPT,sep=""))%>%hideGroup('Municipalities')%>%
-      
+      addPolylines(data=wqs, color='blue', group="Streams",popup=paste(sep='<br/>',
+                              paste('Stream Name: ',wqs@data$WATER_NAME),
+                              paste('Basin: ',wqs@data$BASIN),
+                              paste('WQS Class: ',wqs@data$WQS_CLASS),
+                              paste('Trout Stream: ',wqs@data$WQS_TROUT)))%>%hideGroup('Streams')%>%
       addLayersControl(baseGroups=c('Thunderforest Landscape','Esri World Imagery',
                                     'Open Street Map','Open Topo Map'),
-                       overlayGroups=c('Municipalities'),
+                       overlayGroups=c('Municipalities','Streams'),
                        options=layersControlOptions(collapsed=T),
                        position='topleft')%>%
       addMouseCoordinates()%>%#style='basic')%>%
