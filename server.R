@@ -88,6 +88,8 @@ shinyServer(function(input, output, session) {
     coordinates(point) <- ~lng+lat
     proj4string(point) <- CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0")       
     
+    # highlight catchment
+    incidentCatchment <- 
     
     leafletProxy('waterMap')  %>% clearControls() %>%
       setView(lng=lng,lat=lat,zoom=12)%>%
@@ -147,6 +149,56 @@ shinyServer(function(input, output, session) {
   # -----------------------------------------------------------------------------------------------------
   ## Resources Tab ##
   #-------------------------------------------------------------------------------------------------------
+  
+  # Do all calculations in map?
+  ## Map ## 
+  output$resourcesMap <- renderLeaflet({
+    damicon <- icons(iconUrl = 'www/Dam-48_background.png' ,iconWidth = 20,iconHeight = 20)
+    
+    leaflet()%>%
+      addProviderTiles(providers$Thunderforest.Landscape,group='Thunderforest Landscape')%>%
+      addProviderTiles(providers$Esri.WorldImagery,group='Esri World Imagery')%>%
+      addProviderTiles(providers$OpenStreetMap,group='Open Street Map')%>%
+      addProviderTiles(providers$OpenTopoMap,group='Open Topo Map')%>%
+      addCircleMarkers(data=monstations,radius=2,color='green',group="Monitoring Stations",
+                       popup=popupTable(monstations))%>%hideGroup('Monitoring Stations')%>%
+      addMarkers(data=dams,icon=damicon, group="Dams", popup=popupTable(dams))%>%hideGroup('Dams')%>%
+      addCircleMarkers(data=boatramps,~Long_,~Lat,radius=2,color='orange',
+                       opacity = 1,group='DGIF Boat Ramps',
+                       popup=paste(sep='<br/>',
+                                   paste('DGIF Boat Ramp:',boatramps$SITENAME),
+                                   paste('Waterbody:',boatramps$WATERBODY),
+                                   paste('No of Ramps:',boatramps$NO_OFRAMPS),
+                                   paste('Location:',boatramps$LOCATION),
+                                   paste('Latitude:',boatramps$Lat),'Longitude:',boatramps$Long_))%>%hideGroup('DGIF Boat Ramps')%>%
+      addLayersControl(baseGroups=c('Thunderforest Landscape','Esri World Imagery',
+                                    'Open Street Map','Open Topo Map'),
+                       overlayGroups=c('Municipalities','Monitoring Stations','Dams','DGIF Boat Ramps'),
+                       options=layersControlOptions(collapsed=T),
+                       position='topleft')%>%
+      addMouseCoordinates()%>%#style='basic')%>%
+      addMiniMap(toggleDisplay=T)%>%
+      addHomeButton(extent(bounds), "Pilot Project  Boundary")%>%setView(-80.043,37.274,zoom=9)
+    
+  })
+  
+  ## Plot Incident on map ##
+  observeEvent(input$plotIncident,{
+    lat <- as.numeric(input$incidentLat)
+    lng <- as.numeric(input$incidentLng)
+    # make a spatial object from lat/long
+    point <- data.frame(name='incident',lat=lat,lng=lng)
+    coordinates(point) <- ~lng+lat
+    proj4string(point) <- CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0")       
+    
+    
+    leafletProxy('resourcesMap')  %>% clearControls() %>%
+      setView(lng=lng,lat=lat,zoom=12)%>%
+      addCircleMarkers(data=point,radius=8,
+                       color=~'red',stroke=F,fillOpacity=0.5,
+                       group='userIncident',layerId='Incident',popup='Incident')
+    
+  })
   
   
   output$test <- renderPrint({
