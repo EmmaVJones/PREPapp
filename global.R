@@ -8,6 +8,7 @@ library(rgdal)
 library(DT)
 library(tidyr)
 library(ggplot2)
+library(rgeos)
 
 gageInfo <- readRDS('data/gageInfo.RDS')
 names(gageInfo) <- c('Gage Number','Description','LatDD','LongDD','HUC8','Drainage Area (sq mi)','name2','Web Address')

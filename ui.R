@@ -10,7 +10,8 @@ shinyUI(fluidPage(theme = "yeti.css",
                                       fluidRow(
                                         column(4,textInput('incidentLat',strong('Incident Latitude:'),placeholder='e.g. 37.27854')),
                                         column(4,textInput('incidentLng',strong('Incident Longitude:'),placeholder='e.g. -80.01876')),
-                                        column(4,actionButton('plotIncident',"Locate Incident"))),
+                                        column(4,actionButton('plotIncident',"Locate Incident"),
+                                               actionButton('plotSRxings','Locate Stream/Road Crossings'))),
                                       tabsetPanel(
                                         tabPanel("Water",
                                                  leafletOutput("waterMap",width="100%",height=600)),

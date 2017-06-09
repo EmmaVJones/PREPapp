@@ -14,8 +14,8 @@ roanokecohealthcontact <- readOGR('data','RoanokeCountyHealthDistict')
 catchments <- readOGR('data','Catchments')
 
 #Lines
-#centerline <- readOGR('data','VAroadcenterline2017_84')
-#wqs <- readOGR('data','wqs_riverine_id305b_2013_84')
+wqs <- readOGR('data','wqs_riverine_id305b_2013_84')
+centerline <- readOGR('data','VAroadcenterline2017_84')
 
 # Points, rename point fields so show up pretty in popupTable
 VPDES <- readOGR('data','EMMA_VPDES')
@@ -110,16 +110,16 @@ shinyServer(function(input, output, session) {
       addLayersControl(baseGroups=c('Thunderforest Landscape','Esri World Imagery',
                                     'Open Street Map','Open Topo Map'),
                        overlayGroups=c('Municipalities','Monitoring Stations','Dams','Stream Gages',
-                                       'DGIF Boat Ramps','Sinkholes','Catchment'),
+                                       'DGIF Boat Ramps','Sinkholes','Catchment','Stream/Road Crossings'),
                        options=layersControlOptions(collapsed=T),
                        position='topleft')
-      
-    
-  })
+    })
   
   #sum(findInterval(incident()@coords[2],bbox(catchments)[2,]),
   #    findInterval(incident()@coords[1],bbox(catchments)[1,]))<=1
   
+  
+
   # make a spatial object from user lat/long
   incident <- reactive({
     if(as.numeric(input$incidentLat)=="NA" & as.numeric(input$incidentLng)=="NA")
@@ -131,6 +131,46 @@ shinyServer(function(input, output, session) {
     proj4string(point) <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")       
     return(point)
   })
+  
+  observeEvent(input$plotSRxings,{
+    
+    # highlight catchment
+    incidentCatchment <- catchments[incident(),]
+    
+    # Find Stream/Road intersections within catchment
+    streamsincatchment <- raster::intersect(wqs,incidentCatchment)
+    roadsincatchment <- raster::intersect(centerline,incidentCatchment)
+    streamXroad <- gIntersection(streamsincatchment,roadsincatchment)
+    # Crazy data manipulation to just get lat/longs out right
+    z <- as.table(coordinates(streamXroad))
+    row.names(z) <- 1:nrow(coordinates(streamXroad))
+    z1 <- as.data.frame(t(z))%>%
+      spread(Var2,Freq)
+    
+    finalDF <- data.frame(t(z1[2,-1]),t(z1[1,-1]),'Stream/Road Intersection',t(z1[2,-1]),t(z1[1,-1]))
+    names(finalDF) <- c('lat','lng','Type','Latitude','Longitude')
+    coordinates(finalDF) <- ~lng+lat
+    proj4string(finalDF) <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")       
+    
+    leafletProxy('waterMap')  %>% clearControls() %>%
+      #addPolygons(data=incidentCatchment,color='blue',fill=0.02,stroke=0.1,group="Catchment",
+      #            popup="Incident Catchment")%>%#%>%hideGroup('Catchment')
+      #addCircleMarkers(data=incident(),radius=8,
+      #                 color=~'red',stroke=F,fillOpacity=0.5,
+      #                 group='userIncident',layerId='Incident',popup='Incident')%>%
+      addCircleMarkers(data=finalDF,radius=4,color=~'black',stroke=F,fillOpacity=0.5,
+                       group='Stream/Road Crossings',
+                       popup=paste(sep='<br/>','Stream/Road Crossing',
+                                   paste(finalDF@data$Latitude,finalDF@data$Longitude)))%>%
+      addLayersControl(baseGroups=c('Thunderforest Landscape','Esri World Imagery',
+                                    'Open Street Map','Open Topo Map'),
+                       overlayGroups=c('Municipalities','Monitoring Stations','Dams','Stream Gages',
+                                       'DGIF Boat Ramps','Sinkholes','Catchment','Stream/Road Crossings'),
+                       options=layersControlOptions(collapsed=T),
+                       position='topleft')
+    })
+    
+  
   
   
   # -----------------------------------------------------------------------------------------------------
