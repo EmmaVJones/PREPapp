@@ -8,3 +8,8 @@ library(rgdal)
 library(DT)
 library(tidyr)
 library(ggplot2)
+
+gageInfo <- readRDS('data/gageInfo.RDS')
+names(gageInfo) <- c('Gage Number','Description','LatDD','LongDD','HUC8','Drainage Area (sq mi)','name2','Web Address')
+coordinates(gageInfo) <- ~LongDD+LatDD
+proj4string(gageInfo) <- CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0")                                 

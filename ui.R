@@ -17,6 +17,8 @@ shinyUI(fluidPage(theme = "yeti.css",
                                         tabPanel("Notifications",
                                                  wellPanel(h5('Virginia Department of Heath Contact Information'),
                                                            tableOutput('vdhTable')),
+                                                 wellPanel(h5('County Department of Health Contact Information'),
+                                                           tableOutput('countyTable')),
                                                  wellPanel(h5('Virginia Department of Emergency Management Contact Information'),
                                                            tableOutput('vdemTable')),
                                                  wellPanel(h5('Environmental Protection Agency Contact Information'),
@@ -24,9 +26,9 @@ shinyUI(fluidPage(theme = "yeti.css",
                                                  wellPanel(h5('Virginia Department of Game and Inland Fisheries Contact Information'),
                                                            tableOutput('dgifTable'))),
                                                  #verbatimTextOutput('test')),
-                                        tabPanel("Resources",
-                                                 leafletOutput("resourcesMap",width="100%",height=600)),
-                                        tabPanel("Regulated Sources"))
+                                        tabPanel("Resources"),
+                                        tabPanel("Regulated Sources",
+                                                 leafletOutput("regulatedSourcesMap",width="100%",height=600)))
                              ),
                              tabPanel('Table Information')
                   )

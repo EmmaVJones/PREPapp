@@ -7,29 +7,28 @@ bounds <- readOGR('data','RoanokeBoundary')
 #floodplain <- readOGR('data','S_FLD_HAZ_AR_rmvblank')
 vdhcontact <- readOGR('data','VHD_ODW_Clipped')
 vdemcontact <- readOGR('data','VDEM_EmergencyMgmt_Localities_Clipped')
-#sinkholes <- readOGR('data','VADMME_Sinkholes_Clipped')
+sinkholes <- readOGR('data','VADMME_Sinkholes_Clipped')
 epacontact <- readOGR('data','EPA_OSCs_Clipped')
 dgifcontact <- readOGR('data','DGIF_Bounds_Clipped')
+roanokecohealthcontact <- readOGR('data','RoanokeCountyHealthDistict')
+catchments <- readOGR('data','Catchments')
 
 #Lines
 #centerline <- readOGR('data','VAroadcenterline2017_84')
 #wqs <- readOGR('data','wqs_riverine_id305b_2013_84')
 
 # Points, rename point fields so show up pretty in popupTable
-#VPDES <- readRDS('data/VPDES.RDS')
-
-dams <- readOGR('data','damsEMMA')
+VPDES <- readOGR('data','EMMA_VPDES')
+names(VPDES@data) <- c('Facility Name','Permit Number','Major/Minor','Municipal/Industrial','Receiving Stream')
+dams <- readOGR('data','EMMA_dams')
 names(dams@data) <- c('Dam Name','NID','Purpose','Type','Stream Name','Height (ft)')
-
-monstations <- readOGR('data','monitoringstationsEMMA')
+monstations <- readOGR('data','EMMA_monitoringstations')
 names(monstations@data) <- c('StationID','Description','Stream Name','Parent Basin','Strahler Order','Special Standards')
-
-#hazwaste <- readRDS('data/RC_Temp_HW_Sites.RDS')
-#tankfacilities <- readRDS('S_FLD_HAZ_AR_rmvblank.RDS')
+hazwaste <- readOGR('data','EMMA_hazwaste')
+names(hazwaste@data) <- c('Facility Name','Address','EPA ID')
+tankfacilities <- readOGR('data','EMMA_tankfacilities')
 boatramps <- readRDS('data/GIF_Boating_Access_Sites_84.RDS')
-
-
-#Ecoregions@proj4string <- CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0")
+# Stream gage data in global.R
 
 
 
@@ -60,9 +59,17 @@ shinyServer(function(input, output, session) {
                                    paste('No of Ramps:',boatramps$NO_OFRAMPS),
                                    paste('Location:',boatramps$LOCATION),
                                    paste('Latitude:',boatramps$Lat),'Longitude:',boatramps$Long_))%>%hideGroup('DGIF Boat Ramps')%>%
+        addCircleMarkers(data=gageInfo,radius=6,color=~'blue',stroke=F,
+                         fillOpacity=0.5,group='Stream Gages',
+                         popup=popupTable(gageInfo, zcol = c('Gage Number','Description',
+                                                             'Drainage Area (sq mi)','Web Address')))%>%hideGroup('Stream Gages')%>%
         addPolygons(data=bounds,color='gray',fill=0.1,stroke=0.2,group="Municipalities",
                     popup=paste("Municipality: ",bounds@data$DESCRIPT,sep=""))%>%hideGroup('Municipalities')%>%
-        
+        addPolygons(data=sinkholes,color='yellow',fill=0.1,stroke=0.1,group="Sinkholes",
+                    popup=paste(sep='<br/>',"Sinkholes",
+                                paste('Sq Feet',sinkholes@data$SqFeet),
+                                paste('Sq Meters',sinkholes@data$SqMeters),
+                                paste('Acres',sinkholes@data$Acres)))%>%hideGroup('Sinkholes')%>%
       #addPolylines(data=wqs, color='blue', group="Streams",popup=paste(sep='<br/>',
       #                        paste('Stream Name: ',wqs@data$WATER_NAME),
       #                        paste('Basin: ',wqs@data$BASIN),
@@ -70,12 +77,14 @@ shinyServer(function(input, output, session) {
       #                        paste('Trout Stream: ',wqs@data$WQS_TROUT)))%>%hideGroup('Streams')%>%
       addLayersControl(baseGroups=c('Thunderforest Landscape','Esri World Imagery',
                                     'Open Street Map','Open Topo Map'),
-                       overlayGroups=c('Municipalities','Monitoring Stations','Dams','DGIF Boat Ramps'),
+                       overlayGroups=c('Municipalities','Monitoring Stations','Dams','Stream Gages',
+                                       'DGIF Boat Ramps','Sinkholes'),
                        options=layersControlOptions(collapsed=T),
                        position='topleft')%>%
       addMouseCoordinates()%>%#style='basic')%>%
       addMiniMap(toggleDisplay=T)%>%
-      addHomeButton(extent(bounds), "Pilot Project  Boundary")%>%setView(-80.043,37.274,zoom=9)
+      addHomeButton(extent(bounds), "Pilot Project  Boundary")%>%setView(-80.043,37.274,zoom=9)%>%
+      addMeasure(activeColor='#3D535D',completedColor='#7D4479')
      
   })
 
@@ -89,13 +98,22 @@ shinyServer(function(input, output, session) {
     proj4string(point) <- CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0")       
     
     # highlight catchment
-    incidentCatchment <- 
+    incidentCatchment <- catchments[incident(),]
     
     leafletProxy('waterMap')  %>% clearControls() %>%
       setView(lng=lng,lat=lat,zoom=12)%>%
+      addPolygons(data=incidentCatchment,color='blue',fill=0.02,stroke=0.1,group="Catchment",
+                  popup="Incident Catchment")%>%#%>%hideGroup('Catchment')
       addCircleMarkers(data=point,radius=8,
                        color=~'red',stroke=F,fillOpacity=0.5,
-                       group='userIncident',layerId='Incident',popup='Incident')
+                       group='userIncident',layerId='Incident',popup='Incident')%>%
+      addLayersControl(baseGroups=c('Thunderforest Landscape','Esri World Imagery',
+                                    'Open Street Map','Open Topo Map'),
+                       overlayGroups=c('Municipalities','Monitoring Stations','Dams','Stream Gages',
+                                       'DGIF Boat Ramps','Sinkholes','Catchment'),
+                       options=layersControlOptions(collapsed=T),
+                       position='topleft')
+      
     
   })
   
@@ -125,6 +143,13 @@ shinyServer(function(input, output, session) {
     names(x) <- c('VDH Office','Field Director','Phone Number','Email Address','Office Address')
     return(x)})
   
+  output$countyTable <- renderTable({
+    if(is.null(incident()))
+      return(NULL)
+    x <-roanokecohealthcontact[incident(),]@data
+    names(x) <- c('Heath District','Contact','Phone Number')
+    return(x)})
+  
   output$vdemTable <- renderTable({
     if(is.null(incident()))
       return(NULL)
@@ -147,38 +172,34 @@ shinyServer(function(input, output, session) {
     return(x)})
   
   # -----------------------------------------------------------------------------------------------------
-  ## Resources Tab ##
+  ## Regulated Sources Tab ##
   #-------------------------------------------------------------------------------------------------------
   
   # Do all calculations in map?
   ## Map ## 
-  output$resourcesMap <- renderLeaflet({
-    damicon <- icons(iconUrl = 'www/Dam-48_background.png' ,iconWidth = 20,iconHeight = 20)
+  output$regulatedSourcesMap <- renderLeaflet({
+    hazicon <- icons(iconUrl = 'www/alert-circled.png',iconWidth = 20,iconHeight = 20)
+    tankicon <- icons(iconUrl = 'www/tank2.png',iconWidth = 30,iconHeight = 30)
+    permiticon <- icons(iconUrl = 'www/android-note.png',iconWidth = 20,iconHeight = 20)
     
     leaflet()%>%
       addProviderTiles(providers$Thunderforest.Landscape,group='Thunderforest Landscape')%>%
       addProviderTiles(providers$Esri.WorldImagery,group='Esri World Imagery')%>%
       addProviderTiles(providers$OpenStreetMap,group='Open Street Map')%>%
       addProviderTiles(providers$OpenTopoMap,group='Open Topo Map')%>%
-      addCircleMarkers(data=monstations,radius=2,color='green',group="Monitoring Stations",
-                       popup=popupTable(monstations))%>%hideGroup('Monitoring Stations')%>%
-      addMarkers(data=dams,icon=damicon, group="Dams", popup=popupTable(dams))%>%hideGroup('Dams')%>%
-      addCircleMarkers(data=boatramps,~Long_,~Lat,radius=2,color='orange',
-                       opacity = 1,group='DGIF Boat Ramps',
-                       popup=paste(sep='<br/>',
-                                   paste('DGIF Boat Ramp:',boatramps$SITENAME),
-                                   paste('Waterbody:',boatramps$WATERBODY),
-                                   paste('No of Ramps:',boatramps$NO_OFRAMPS),
-                                   paste('Location:',boatramps$LOCATION),
-                                   paste('Latitude:',boatramps$Lat),'Longitude:',boatramps$Long_))%>%hideGroup('DGIF Boat Ramps')%>%
+      addMarkers(data=VPDES,icon=permiticon, group="VPDES Permits", popup=popupTable(VPDES))%>%hideGroup('VPDES Permits')%>%
+      addMarkers(data=hazwaste,icon=hazicon, group="Hazardous Waste Sites", popup=popupTable(hazwaste))%>%hideGroup('Hazardous Waste Sites')%>%
+      addMarkers(data=tankfacilities,icon=tankicon, group="Tank Facilities", popup='Tank Facility')%>%hideGroup('Tank Facilities')%>%
       addLayersControl(baseGroups=c('Thunderforest Landscape','Esri World Imagery',
                                     'Open Street Map','Open Topo Map'),
-                       overlayGroups=c('Municipalities','Monitoring Stations','Dams','DGIF Boat Ramps'),
+                       overlayGroups=c('VPDES Permits','Hazardous Waste Sites',
+                                       'Tank Facilities'),
                        options=layersControlOptions(collapsed=T),
                        position='topleft')%>%
       addMouseCoordinates()%>%#style='basic')%>%
       addMiniMap(toggleDisplay=T)%>%
-      addHomeButton(extent(bounds), "Pilot Project  Boundary")%>%setView(-80.043,37.274,zoom=9)
+      addHomeButton(extent(bounds), "Pilot Project  Boundary")%>%setView(-80.043,37.274,zoom=9)%>%
+      addMeasure(activeColor='#3D535D',completedColor='#7D4479')
     
   })
   
@@ -191,12 +212,22 @@ shinyServer(function(input, output, session) {
     coordinates(point) <- ~lng+lat
     proj4string(point) <- CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0")       
     
+    # highlight catchment
+    incidentCatchment <- catchments[incident(),]
     
-    leafletProxy('resourcesMap')  %>% clearControls() %>%
+    leafletProxy('regulatedSourcesMap') %>% clearControls() %>%
       setView(lng=lng,lat=lat,zoom=12)%>%
+      addPolygons(data=incidentCatchment,color='blue',fill=0.02,stroke=0.1,group="Catchment",
+                  popup="Incident Catchment")%>%#%>%hideGroup('Catchment')
       addCircleMarkers(data=point,radius=8,
                        color=~'red',stroke=F,fillOpacity=0.5,
-                       group='userIncident',layerId='Incident',popup='Incident')
+                       group='userIncident',layerId='Incident',popup='Incident')%>%
+      addLayersControl(baseGroups=c('Thunderforest Landscape','Esri World Imagery',
+                                    'Open Street Map','Open Topo Map'),
+                       overlayGroups=c('VPDES Permits','Hazardous Waste Sites',
+                                       'Tank Facilities','Catchment'),
+                       options=layersControlOptions(collapsed=T),
+                       position='topleft')
     
   })
   
