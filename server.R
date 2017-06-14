@@ -11,6 +11,7 @@ sinkholes <- readOGR('data','VADMME_Sinkholes_Clipped')
 epacontact <- readOGR('data','EPA_OSCs_Clipped')
 dgifcontact <- readOGR('data','DGIF_Bounds_Clipped')
 roanokecohealthcontact <- readOGR('data','RoanokeCountyHealthDistict')
+swIntakesPolys <- readOGR('data','swIntakes_84')
 catchments <- readOGR('data','Catchments')
 
 #Lines
@@ -28,6 +29,7 @@ hazwaste <- readOGR('data','EMMA_hazwaste')
 names(hazwaste@data) <- c('Facility Name','Address','EPA ID')
 tankfacilities <- readOGR('data','EMMA_tankfacilities')
 boatramps <- readRDS('data/GIF_Boating_Access_Sites_84.RDS')
+surfaceIntakes <- readRDS('data/EMMAswIntakes.RDS')
 # Stream gage data in global.R
 
 
@@ -36,9 +38,6 @@ shinyServer(function(input, output, session) {
   # -----------------------------------------------------------------------------------------------------
   ## Water Tab ##
   #-------------------------------------------------------------------------------------------------------
-  #activeDot <- function(map,x,y){addCircleMarkers(map,x,y,radius=6,color='blue',fillColor = 'yellow',
-  #                                                fillOpacity = 1,opacity=1,weight = 2,stroke=T,layerId = 'Selected')}
-  
   ## Map ## 
   output$waterMap <- renderLeaflet({
     damicon <- icons(iconUrl = 'www/Dam-48_background.png' ,iconWidth = 20,iconHeight = 20)
@@ -70,24 +69,37 @@ shinyServer(function(input, output, session) {
                                 paste('Sq Feet',sinkholes@data$SqFeet),
                                 paste('Sq Meters',sinkholes@data$SqMeters),
                                 paste('Acres',sinkholes@data$Acres)))%>%hideGroup('Sinkholes')%>%
-      #addPolylines(data=wqs, color='blue', group="Streams",popup=paste(sep='<br/>',
-      #                        paste('Stream Name: ',wqs@data$WATER_NAME),
-      #                        paste('Basin: ',wqs@data$BASIN),
-      #                        paste('WQS Class: ',wqs@data$WQS_CLASS),
-      #                        paste('Trout Stream: ',wqs@data$WQS_TROUT)))%>%hideGroup('Streams')%>%
+        addCircleMarkers(data=surfaceIntakes,~intakeLng,~intakeLat,radius=2,color='deeppink',
+                         opacity = 1,group='Surface Water Intakes',
+                         popup=paste(sep='<br/>',
+                                     paste('Intake:',surfaceIntakes$Intake),
+                                     paste('Phone:',surfaceIntakes$Phone)))%>%hideGroup('Surface Water Intakes')%>%
+      addPolylines(data=wqs, color='navy', group="Streams",popup=paste(sep='<br/>',
+                              paste('Stream Name: ',wqs@data$WATER_NAME),
+                              paste('Basin: ',wqs@data$BASIN),
+                              paste('WQS Class: ',wqs@data$WQS_CLASS),
+                              paste('Trout Stream: ',wqs@data$WQS_TROUT)))%>%hideGroup('Streams')%>%
       addLayersControl(baseGroups=c('Thunderforest Landscape','Esri World Imagery',
                                     'Open Street Map','Open Topo Map'),
                        overlayGroups=c('Municipalities','Monitoring Stations','Dams','Stream Gages',
-                                       'DGIF Boat Ramps','Sinkholes'),
+                                       'DGIF Boat Ramps','Surface Water Intakes','Streams','Sinkholes'),
                        options=layersControlOptions(collapsed=T),
                        position='topleft')%>%
       addMouseCoordinates()%>%#style='basic')%>%
       addMiniMap(toggleDisplay=T)%>%
       addHomeButton(extent(bounds), "Pilot Project  Boundary")%>%setView(-80.043,37.274,zoom=9)%>%
       addMeasure(activeColor='#3D535D',completedColor='#7D4479')
-     
   })
-
+  
+  observe({
+    shinyjs::toggleState('plotIncident', input$incidentLat !="" && input$incidentLng !="" )#&&
+    #findInterval(input$incidentLat,bbox(catchments)[2,])==1)#,
+    # findInterval(incident()@coords[1],bbox(catchments)[1,]))>1)
+  })
+  observe({
+    shinyjs::toggleState('plotSRxings', input$incidentLat !="" && input$incidentLng !="")
+  })
+  
   ## Plot Incident on map ##
   observeEvent(input$plotIncident,{
     lat <- as.numeric(input$incidentLat)
@@ -97,9 +109,10 @@ shinyServer(function(input, output, session) {
     coordinates(point) <- ~lng+lat
     proj4string(point) <- CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0")       
     
-    # highlight catchment
+    # Highlight catchment incident falls into
     incidentCatchment <- catchments[incident(),]
     
+    # Add incident location and highlight catcment to map
     leafletProxy('waterMap')  %>% clearControls() %>%
       setView(lng=lng,lat=lat,zoom=12)%>%
       addPolygons(data=incidentCatchment,color='blue',fill=0.02,stroke=0.1,group="Catchment",
@@ -110,20 +123,18 @@ shinyServer(function(input, output, session) {
       addLayersControl(baseGroups=c('Thunderforest Landscape','Esri World Imagery',
                                     'Open Street Map','Open Topo Map'),
                        overlayGroups=c('Municipalities','Monitoring Stations','Dams','Stream Gages',
-                                       'DGIF Boat Ramps','Sinkholes','Catchment','Stream/Road Crossings'),
+                                       'DGIF Boat Ramps','Surface Water Intakes','Streams','Sinkholes','Catchment'),
                        options=layersControlOptions(collapsed=T),
                        position='topleft')
     })
   
-  #sum(findInterval(incident()@coords[2],bbox(catchments)[2,]),
-  #    findInterval(incident()@coords[1],bbox(catchments)[1,]))<=1
   
   
 
   # make a spatial object from user lat/long
   incident <- reactive({
-    if(as.numeric(input$incidentLat)=="NA" & as.numeric(input$incidentLng)=="NA")
-      return(NULL)
+    req(input$plotIncident)
+    
     lat <- as.numeric(input$incidentLat)
     lng <- as.numeric(input$incidentLng)
     point <- data.frame(name='incident',lat=lat,lng=lng)
@@ -165,7 +176,7 @@ shinyServer(function(input, output, session) {
       addLayersControl(baseGroups=c('Thunderforest Landscape','Esri World Imagery',
                                     'Open Street Map','Open Topo Map'),
                        overlayGroups=c('Municipalities','Monitoring Stations','Dams','Stream Gages',
-                                       'DGIF Boat Ramps','Sinkholes','Catchment','Stream/Road Crossings'),
+                                       'DGIF Boat Ramps','Surface Water Intakes','Streams','Sinkholes','Catchment','Stream/Road Crossings'),
                        options=layersControlOptions(collapsed=T),
                        position='topleft')
     })
@@ -210,6 +221,17 @@ shinyServer(function(input, output, session) {
     x <- dgifcontact[incident(),]@data%>%select(DGIFreg3,Phone_Num ,RO_Address,AfterHours,AH_Email)
     names(x) <- c('DGIF Region','Phone Number','Regional Office Address','After Hours Phone Number','After Hours Email Address')
     return(x)})
+  
+  output$swIntakesTable <- renderTable({
+    if(is.null(incident()))
+      return(NULL)
+    x <- swIntakesPolys[incident(),]@data%>%select(Intake,FieldOffic,Phone,Fax,area)
+    if(nrow(x)<1){
+      return(data.frame(Intake='Not in surface water intake watershed'))}else{
+        names(x) <- c('Surface Water Intake','Field Office','Phone','Fax','Intake Watershed Area (sq mi)')
+        return(x)}
+    })
+    
   
   # -----------------------------------------------------------------------------------------------------
   ## Regulated Sources Tab ##
