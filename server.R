@@ -289,8 +289,9 @@ shinyServer(function(input, output, session) {
     if(is.null(incident()))
       return(NULL)
     x <- vdemcontact[incident(),]@data%>%select(NAME,VDEMregion)%>%
-      mutate(Contact=c('Brian Thurman','Ray Earp'),Phone=c('540-986-6982','804-513-5726'),
-             Email=c('brian.thurman@vdem.virginia.gov','ray.earp@vdem.virginia.gov'))
+      mutate(Contact=c('Brian Thurman'),Phone=c('540-986-6982'),
+             Email=c('brian.thurman@vdem.virginia.gov'))
+    x <- rbind(x,data.frame(NAME='Roanoke City',VDEMregion='6',Contact='Ray Earp',Phone='804-513-5726',Email='ray.earp@vdem.virginia.gov'))
     names(x) <- c('DEM Region','DEM Region Number','Regional Hazmat Officer','Phone Number','Email Address')
     return(x)})
   
