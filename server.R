@@ -172,7 +172,7 @@ shinyServer(function(input, output, session) {
       addCircleMarkers(data=finalDF,radius=4,color=~'black',stroke=F,fillOpacity=0.5,
                        group='Stream/Road Crossings',
                        popup=paste(sep='<br/>','Stream/Road Crossing',
-                                   paste(finalDF@data$Latitude,finalDF@data$Longitude)))%>%
+                                   paste(finalDF@data$Latitude,finalDF@data$Longitude,sep=", ")))%>%
       addLayersControl(baseGroups=c('Thunderforest Landscape','Esri World Imagery',
                                     'Open Street Map','Open Topo Map'),
                        overlayGroups=c('Municipalities','Monitoring Stations','Dams','Stream Gages',
@@ -183,56 +183,7 @@ shinyServer(function(input, output, session) {
     
   
   
-  
-  # -----------------------------------------------------------------------------------------------------
-  ## Notifications Tab ##
-  #-------------------------------------------------------------------------------------------------------
-  output$vdhTable <- renderTable({
-    if(is.null(incident()))
-      return(NULL)
-    x <-vdhcontact[incident(),]@data%>%select(VDH_ODW,Field_Dire,Phone_Num,Email_Add,Office_Add)
-    names(x) <- c('VDH Office','Field Director','Phone Number','Email Address','Office Address')
-    return(x)})
-  
-  output$countyTable <- renderTable({
-    if(is.null(incident()))
-      return(NULL)
-    x <-roanokecohealthcontact[incident(),]@data
-    names(x) <- c('Heath District','Contact','Phone Number')
-    return(x)})
-  
-  output$vdemTable <- renderTable({
-    if(is.null(incident()))
-      return(NULL)
-    x <- vdemcontact[incident(),]@data%>%select(NAME,VDEMregion)
-    names(x) <- c('DEM Region','DEM Region Number')
-    return(x)})
-  
-  output$epaTable <- renderTable({
-    if(is.null(incident()))
-      return(NULL)
-    x <- epacontact[incident(),]@data%>%select(EPA_VARegi,Primary_Co,Secondary_,Tertiary_C)
-    names(x) <- c('EPA Region','Primary Contact','Secondary Contact','Tertiary Contact')
-    return(x)})
-  
-  output$dgifTable <- renderTable({
-    if(is.null(incident()))
-      return(NULL)
-    x <- dgifcontact[incident(),]@data%>%select(DGIFreg3,Phone_Num ,RO_Address,AfterHours,AH_Email)
-    names(x) <- c('DGIF Region','Phone Number','Regional Office Address','After Hours Phone Number','After Hours Email Address')
-    return(x)})
-  
-  output$swIntakesTable <- renderTable({
-    if(is.null(incident()))
-      return(NULL)
-    x <- swIntakesPolys[incident(),]@data%>%select(Intake,FieldOffic,Phone,Fax,area)
-    if(nrow(x)<1){
-      return(data.frame(Intake='Not in surface water intake watershed'))}else{
-        names(x) <- c('Surface Water Intake','Field Office','Phone','Fax','Intake Watershed Area (sq mi)')
-        return(x)}
-    })
-    
-  
+
   # -----------------------------------------------------------------------------------------------------
   ## Regulated Sources Tab ##
   #-------------------------------------------------------------------------------------------------------
@@ -305,6 +256,77 @@ shinyServer(function(input, output, session) {
   })
   
   
+  
+  
+  # -----------------------------------------------------------------------------------------------------
+  ## Notifications Tab ##
+  #-------------------------------------------------------------------------------------------------------
+  output$swIntakesTable <- renderTable({
+    if(is.null(incident()))
+      return(NULL)
+    x <- swIntakesPolys[incident(),]@data%>%select(Intake,FieldOffic,Phone,Fax,area)
+    if(nrow(x)<1){
+      return(data.frame(Intake='Not in surface water intake watershed'))}else{
+        names(x) <- c('Surface Water Intake','Field Office','Phone','Fax','Intake Watershed Area (sq mi)')
+        return(x)}
+  })
+  
+  output$vdhTable <- renderTable({
+    if(is.null(incident()))
+      return(NULL)
+    x <-vdhcontact[incident(),]@data%>%select(VDH_ODW,Field_Dire,Phone_Num,Email_Add,Office_Add)
+    names(x) <- c('VDH Office','Field Director','Phone Number','Email Address','Office Address')
+    return(x)})
+  
+  output$countyTable <- renderTable({
+    if(is.null(incident()))
+      return(NULL)
+    x <-roanokecohealthcontact[incident(),]@data
+    names(x) <- c('Heath District','Director of Office','Phone Number')
+    return(x)})
+  
+  output$vdemTable <- renderTable({
+    if(is.null(incident()))
+      return(NULL)
+    x <- vdemcontact[incident(),]@data%>%select(NAME,VDEMregion)%>%
+      mutate(Contact=c('Brian Thurman','Ray Earp'),Phone=c('540-986-6982','804-513-5726'),
+             Email=c('brian.thurman@vdem.virginia.gov','ray.earp@vdem.virginia.gov'))
+    names(x) <- c('DEM Region','DEM Region Number','Regional Hazmat Officer','Phone Number','Email Address')
+    return(x)})
+  
+  
+  output$regionalDGIFTable <- renderTable({
+    if(is.null(incident()))
+      return(NULL)
+    x <- dgifcontact[incident(),]@data%>%select(DGIFreg3,Phone_Num ,RO_Address,AfterHours,AH_Email)
+    names(x) <- c('DGIF Region','Phone Number','Regional Office Address','After Hours Phone Number','After Hours Email Address')
+    return(x)})
+  
+  output$epaTable <- renderTable({
+    if(is.null(incident()))
+      return(NULL)
+    x <- epacontact[incident(),]@data%>%select(EPA_VARegi,Primary_Co,Secondary_,Tertiary_C)
+    names(x) <- c('EPA Region','Primary Contact','Secondary Contact','Tertiary Contact')
+    return(x)})
+  
+  output$statewideDGIFTable <- renderTable({
+    x <- data.frame(Contact='Ernie Aschenbach',Phone='804-367-2733',Email='ernie.aschenbach@dgif.virginia.gov')
+    names(x) <- c('Statewide Contact','Phone Number','Email Address')
+    return(x)
+  })
+  
+  output$USFWStable <- renderTable({
+    x <- data.frame(Contact='Susan Lingenfelser',Phone='804-824-2415',Email='susan_lingenfelser@fws.gov')
+    names(x) <- c('Contact','Phone Number','Email Address')
+    return(x)})
+  
+  output$NRCtable <- renderTable({
+    return(data.frame(Hotline='800-424-8802'))})
+  
+  output$USCGtable <- renderTable({
+    x <- data.frame(Hampton='757-483-8567')
+    names(x) <- 'Hampton Roads Command Center'
+    return(x)})
   
 })
 
